@@ -29,7 +29,7 @@ const fallbackScenes = [
     presenceBig: 0.75,
     presenceSmall: 0.65,
     communicationQuality: 0.8,
-    flirt: 0.1,
+    flirt: constrain(max(sexualCharge, mutualWarmth * 0.6), 0, 1),
     pursuitBig: 0.35,
     pursuitSmall: 0.2,
     avoidanceBig: 0.2,
