@@ -2,26 +2,22 @@
   data_driven_lava_lamp_blobs.js
 
   p5.js lava-lamp relationship visualization driven by conversation_state_timeline.json
-
-  Expected data file:
-    conversation_state_timeline.json
-
-  This JSON is produced by conversation_state_engine.py and should be placed in the
-  same folder as this sketch, or in the p5 editor's project files.
-
-  If the JSON cannot be loaded, the sketch falls back to demo scenes.
 */
 
 let t = 0;
 let timeline = [];
 let usingRealData = false;
 let currentFrame = 0;
-let playbackSpeed = 0.018;
+let playbackSpeed = 0.012;
 let smoothedState;
 let personA = "person_1";
 let personB = "person_2";
 let labelHold = "loading...";
 let lastDataError = "";
+
+// Smoothed color memory
+let smoothedBigColor;
+let smoothedSmallColor;
 
 const fallbackScenes = [
   {
@@ -121,7 +117,7 @@ const fallbackScenes = [
     activation: 0.2,
     asymmetry: 0.25,
     sexualCharge: 0.0,
-    drunkBig: 0,
+    drunkBig: 0.8,
     drunkSmall: 0
   },
   {
@@ -178,10 +174,12 @@ function setup() {
 
 function draw() {
   background(245);
-  t += 0.016 + smoothedState.activation * 0.018;
+
+  // Slower, more relaxing lava-lamp motion
+  t += 0.007 + smoothedState.activation * 0.006;
 
   const targetState = getTargetState();
-  smoothedState = smoothState(smoothedState, targetState, 0.045);
+  smoothedState = smoothState(smoothedState, targetState, 0.026);
 
   drawLavaLamp(smoothedState);
   drawLabels(smoothedState);
@@ -207,6 +205,7 @@ function getTargetState() {
 
 function getFallbackState() {
   currentFrame += playbackSpeed;
+
   const sceneProgress = currentFrame % fallbackScenes.length;
   const i = floor(sceneProgress);
   const amt = easeInOut(sceneProgress - i);
@@ -218,7 +217,6 @@ function getFallbackState() {
 function normalizeTimeline(data) {
   if (!data) return [];
   if (Array.isArray(data)) return data;
-
   if (Array.isArray(data.records)) return data.records;
   if (Array.isArray(data.timeline)) return data.timeline;
   return [];
@@ -282,21 +280,46 @@ function stateFromTimelineRow(row) {
     datetime: row.datetime || "",
     labels,
 
-    distance: constrain(1 - approachAvoidance + asymmetry * 0.22 - mutualWarmth * 0.16, 0.04, 0.96),
+    distance: constrain(
+      1 - approachAvoidance + asymmetry * 0.22 - mutualWarmth * 0.16,
+      0.04,
+      0.96
+    ),
+
     intimacy: constrain(mutualWarmth * 0.52 + mutualIntimacy * 0.48, 0, 1),
 
-    bigTone: constrain(0.42 + aWarmth * 0.58 - aCoolness * 0.48 + sexualCharge * 0.25, 0, 1),
-    smallTone: constrain(0.42 + bWarmth * 0.58 - bCoolness * 0.48 + sexualCharge * 0.25, 0, 1),
+    warmthBig: constrain(aWarmth, 0, 1),
+    warmthSmall: constrain(bWarmth, 0, 1),
+    coolnessBig: constrain(aCoolness, 0, 1),
+    coolnessSmall: constrain(bCoolness, 0, 1),
+
+    bigTone: constrain(
+      0.42 + aWarmth * 0.58 - aCoolness * 0.48 + sexualCharge * 0.25,
+      0,
+      1
+    ),
+
+    smallTone: constrain(
+      0.42 + bWarmth * 0.58 - bCoolness * 0.48 + sexualCharge * 0.25,
+      0,
+      1
+    ),
 
     presenceBig: constrain(0.45 + aVolume * 0.55, 0, 1),
     presenceSmall: constrain(0.45 + bVolume * 0.55, 0, 1),
-    communicationQuality: constrain(0.25 + mutualWarmth * 0.5 + (aVolume + bVolume) * 0.16, 0, 1),
+
+    communicationQuality: constrain(
+      0.25 + mutualWarmth * 0.5 + (aVolume + bVolume) * 0.16,
+      0,
+      1
+    ),
 
     flirt: constrain(sexualCharge, 0, 1),
     sexualCharge,
 
     pursuitBig: constrain(aPursuit, 0, 1),
     pursuitSmall: constrain(bPursuit, 0, 1),
+
     avoidanceBig: constrain(aWithdrawal + aCoolness * 0.35, 0, 1),
     avoidanceSmall: constrain(bWithdrawal + bCoolness * 0.35, 0, 1),
 
@@ -318,26 +341,38 @@ function drawLavaLamp(state) {
   const smallR = baseR * map(state.presenceSmall, 0, 1, 0.78, 1.28);
 
   const withdrawalDistance =
-    max(state.avoidanceBig, state.avoidanceSmall) * 42;
+    max(state.avoidanceBig, state.avoidanceSmall) * 72;
 
   const distancePush =
-    map(state.distance, 0, 1, 42, 180) + withdrawalDistance;
+    map(state.distance, 0, 1, 42, 205) + withdrawalDistance;
 
-  const orbitX = distancePush + state.asymmetry * 26;
-  const orbitY = map(state.distance, 0, 1, 26, 112);
+  const orbitX = distancePush + state.asymmetry * 34;
+  const orbitY = map(state.distance, 0, 1, 26, 120);
 
-  const bigPursuitSpeed = 1 + state.pursuitBig * 1.1;
-  const smallPursuitSpeed = 1 + state.pursuitSmall * 1.1;
+  const bigPursuitSpeed = 1 + state.pursuitBig * 1.08;
+  const smallPursuitSpeed = 1 + state.pursuitSmall * 1.08;
+
+  const bigLag = map(state.drunkBig || 0, 0, 1, 1, 0.72);
+  const smallLag = map(state.drunkSmall || 0, 0, 1, 1, 0.72);
 
   let big = createVector(
-    cx + cos(t * 0.42 * bigPursuitSpeed + PI) * orbitX * 0.33,
-    cy + sin(t * 0.66) * orbitY * 0.28
+    cx + cos(t * 0.38 * bigPursuitSpeed * bigLag + PI) * orbitX * 0.33,
+    cy + sin(t * 0.56 * bigLag) * orbitY * 0.28
   );
 
   let small = createVector(
-    cx + cos(t * smallPursuitSpeed) * orbitX,
-    cy + sin(t * 1.18) * orbitY
+    cx + cos(t * 0.9 * smallPursuitSpeed * smallLag) * orbitX,
+    cy + sin(t * 1.0 * smallLag) * orbitY
   );
+
+  const bigDrift = state.drunkBig || 0;
+  const smallDrift = state.drunkSmall || 0;
+
+  big.x += sin(t * 0.28 + 1.7) * 18 * bigDrift;
+  big.y += cos(t * 0.22 + 0.6) * 14 * bigDrift;
+
+  small.x += sin(t * 0.31 + 2.4) * 18 * smallDrift;
+  small.y += cos(t * 0.23 + 1.2) * 14 * smallDrift;
 
   applyAvoidance(big, small, bigR, smallR, state.avoidanceBig, true);
   applyAvoidance(small, big, smallR, bigR, state.avoidanceSmall, false);
@@ -347,29 +382,43 @@ function drawLavaLamp(state) {
 
   enforceNoTouch(big, small, bigR, smallR, state);
 
-  const bigColor = emotionalColor(state.bigTone, state.intimacy, state.sexualCharge);
-  const smallColor = emotionalColor(state.smallTone, state.intimacy, state.sexualCharge);
+  const targetBigColor = emotionalColor(
+    state.warmthBig,
+    state.coolnessBig,
+    state.flirt,
+    state.sexualCharge
+  );
 
-  bigColor.setAlpha(map(state.drunkBig || 0, 0, 1, 255, 150));
-  smallColor.setAlpha(map(state.drunkSmall || 0, 0, 1, 255, 150));
+  const targetSmallColor = emotionalColor(
+    state.warmthSmall,
+    state.coolnessSmall,
+    state.flirt,
+    state.sexualCharge
+  );
 
-  drawGlow(big, bigR, bigColor, state);
-  drawGlow(small, smallR, smallColor, state);
+  if (!smoothedBigColor) smoothedBigColor = targetBigColor;
+  if (!smoothedSmallColor) smoothedSmallColor = targetSmallColor;
 
-  drawBlob(big.x, big.y, bigR, small, true, bigColor, {
+  smoothedBigColor = lerpColor(smoothedBigColor, targetBigColor, 0.025);
+  smoothedSmallColor = lerpColor(smoothedSmallColor, targetSmallColor, 0.025);
+
+  drawGlow(big, bigR, smoothedBigColor, state, state.drunkBig || 0);
+  drawGlow(small, smallR, smoothedSmallColor, state, state.drunkSmall || 0);
+
+  drawBlob(big.x, big.y, bigR, small, true, smoothedBigColor, {
     ...state,
     pursuit: state.pursuitBig,
     avoidance: state.avoidanceBig
   });
 
-  drawBlob(small.x, small.y, smallR, big, false, smallColor, {
+  drawBlob(small.x, small.y, smallR, big, false, smoothedSmallColor, {
     ...state,
     pursuit: state.pursuitSmall,
     avoidance: state.avoidanceSmall
   });
 
   if (state.flirt > 0.72) {
-    drawSoftContact(big, small, bigR, smallR, state, bigColor, smallColor);
+    drawSoftContact(big, small, bigR, smallR, state, smoothedBigColor, smoothedSmallColor);
   }
 }
 
@@ -378,12 +427,17 @@ function applyAvoidance(self, other, selfR, otherR, avoidance, isBig) {
   const d = max(away.mag(), 0.001);
   away.normalize();
 
-  const closeness = constrain(map(d, selfR + otherR + 90, selfR + otherR + 8, 0, 1), 0, 1);
+  const closeness = constrain(
+    map(d, selfR + otherR + 115, selfR + otherR + 8, 0, 1),
+    0,
+    1
+  );
+
   const sidestep = createVector(-away.y, away.x);
   const crescentBias = isBig ? 1 : -1;
 
-  self.add(away.mult(closeness * avoidance * 22));
-  self.add(sidestep.mult(closeness * avoidance * 18 * crescentBias));
+  self.add(away.mult(closeness * avoidance * 26));
+  self.add(sidestep.mult(closeness * avoidance * 19 * crescentBias));
 }
 
 function applyPursuit(self, other, pursuit, flirt) {
@@ -391,15 +445,19 @@ function applyPursuit(self, other, pursuit, flirt) {
   const d = max(toward.mag(), 0.001);
   toward.normalize();
 
-  const allowedPull = pursuit * (flirt > 0.72 ? 16 : 8);
-  const farness = constrain(map(d, 40, 210, 0, 1), 0, 1);
+  const allowedPull = pursuit * (flirt > 0.72 ? 15 : 9);
+  const farness = constrain(map(d, 40, 240, 0, 1), 0, 1);
   self.add(toward.mult(allowedPull * farness));
 }
 
 function enforceNoTouch(big, small, bigR, smallR, state) {
   if (state.flirt > 0.72) return;
 
-  const minGap = 10 + state.asymmetry * 8;
+  const minGap =
+    12 +
+    state.asymmetry * 12 +
+    max(state.avoidanceBig, state.avoidanceSmall) * 12;
+
   const minDist = bigR + smallR + minGap;
   const actualDist = p5.Vector.dist(big, small);
 
@@ -419,23 +477,30 @@ function drawBlob(x, y, r, other, isBig, c, state) {
   beginShape();
 
   const points = 96;
+
   for (let i = 0; i < points; i++) {
     const a = map(i, 0, points, 0, TWO_PI);
 
     const drunkFactor = isBig ? state.drunkBig || 0 : state.drunkSmall || 0;
 
     const agitation =
-      0.6 +
-      state.activation * 1.2 -
-      drunkFactor * 0.15;
+      0.52 +
+      state.activation * 0.95 -
+      drunkFactor * 0.2;
 
     const wobble =
-      sin(a * 3 + frameCount * 0.025 * agitation) * r * 0.04 +
-      sin(a * 5 + frameCount * 0.015 * agitation) * r * 0.025 +
-      sin(a * 8 + frameCount * 0.011) * r * 0.01 * state.asymmetry;
+      sin(a * 3 + frameCount * 0.018 * agitation) * r * 0.04 +
+      sin(a * 5 + frameCount * 0.011 * agitation) * r * 0.025 +
+      sin(a * 8 + frameCount * 0.008) * r * 0.01 * state.asymmetry;
 
     const drunkMelt =
-      sin(a * 2 + frameCount * 0.012) *
+      sin(a * 2 + frameCount * 0.007) *
+      r *
+      0.075 *
+      drunkFactor;
+
+    const drunkSlosh =
+      sin(a + frameCount * 0.005 + cos(frameCount * 0.004)) *
       r *
       0.045 *
       drunkFactor;
@@ -445,8 +510,8 @@ function drawBlob(x, y, r, other, isBig, c, state) {
     const dist = toOther.mag();
     const diff = atan2(sin(a - angleToOther), cos(a - angleToOther));
 
-    const closeness = constrain(map(dist, r * 3.1, r * 1.05, 0, 1), 0, 1);
-    const farReach = constrain(map(dist, r * 1.7, r * 3.9, 0, 1), 0, 1);
+    const closeness = constrain(map(dist, r * 3.3, r * 1.05, 0, 1), 0, 1);
+    const farReach = constrain(map(dist, r * 1.45, r * 4.25, 0, 1), 0, 1);
 
     let deform = 0;
 
@@ -467,7 +532,7 @@ function drawBlob(x, y, r, other, isBig, c, state) {
     deform +=
       exp(-pow(diff, 2) * 18) *
       r *
-      0.58 *
+      0.86 *
       farReach *
       state.pursuit;
 
@@ -484,7 +549,7 @@ function drawBlob(x, y, r, other, isBig, c, state) {
       0.42 *
       state.flirt;
 
-    const rr = max(8, r + wobble + deform + drunkMelt);
+    const rr = max(8, r + wobble + deform + drunkMelt + drunkSlosh);
     curveVertex(cos(a) * rr, sin(a) * rr);
   }
 
@@ -492,12 +557,28 @@ function drawBlob(x, y, r, other, isBig, c, state) {
   pop();
 }
 
-function drawGlow(pos, r, c, state) {
+function drawGlow(pos, r, c, state, drunkFactor = 0) {
   push();
   noStroke();
-  const glow = color(red(c), green(c), blue(c), 22 + state.activation * 32);
+
+  const glowSize =
+    r *
+    (2.4 + drunkFactor * 1.35);
+
+  const glowAlpha =
+    18 +
+    state.activation * 24 -
+    drunkFactor * 5;
+
+  const glow = color(
+    red(c),
+    green(c),
+    blue(c),
+    constrain(glowAlpha, 10, 48)
+  );
+
   fill(glow);
-  ellipse(pos.x, pos.y, r * 2.4, r * 2.4);
+  ellipse(pos.x, pos.y, glowSize, glowSize);
   pop();
 }
 
@@ -514,45 +595,43 @@ function drawSoftContact(big, small, bigR, smallR, state, bigColor, smallColor) 
   noStroke();
   fill(contactColor);
 
-  const pulse = sin(frameCount * 0.12) * 5;
+  const pulse = sin(frameCount * 0.08) * 5;
   ellipse(mid.x, mid.y, 24 + state.flirt * 38 + pulse, 14 + state.flirt * 22);
 }
 
-function emotionalColor(tone, intimacy, sexualCharge) {
-  const cold = color(38, 48, 86);
-  const cool = color(83, 108, 158);
-  const softPink = color(245, 174, 202);
-  const warm = color(255, 211, 166);
-  const red = color(220, 58, 74);
+function emotionalColor(warmth, coolness, flirt, sexualCharge) {
+  const deepCool = color(28, 38, 88);
+  const lightCool = color(135, 172, 222);
+  const neutral = color(190, 198, 205);
+  const warmOrange = color(255, 172, 91);
+  const flirtyPink = color(248, 145, 190);
+  const sexualPink = color(196, 45, 126);
 
   let base;
-  if (tone < 0.35) {
-    base = lerpColor(cold, cool, tone / 0.35);
-  } else if (tone < 0.72) {
-    base = lerpColor(cool, softPink, map(tone, 0.35, 0.72, 0, 1));
+
+  if (coolness > warmth && coolness > 0.08) {
+    base = lerpColor(lightCool, deepCool, constrain(coolness, 0, 1));
   } else {
-    base = lerpColor(softPink, warm, intimacy);
+    base = lerpColor(neutral, warmOrange, constrain(warmth, 0, 1));
   }
 
-  return lerpColor(base, red, constrain(sexualCharge, 0, 1));
+  base = lerpColor(base, flirtyPink, constrain(flirt * 0.75, 0, 1));
+  base = lerpColor(base, sexualPink, constrain(sexualCharge, 0, 1));
+
+  return base;
 }
 
 function drawLabels(state) {
+  const label = state.label || "";
+
+  if (!label || label === "conversation begins") return;
+
   fill(35);
   noStroke();
   textAlign(LEFT);
 
   textSize(14);
-  text(state.label, 18, 26);
-
-  textSize(10);
-  fill(80);
-
-  if (usingRealData && state.datetime) {
-    text(formatDate(state.datetime), 18, 44);
-  } else if (lastDataError) {
-    text(lastDataError, 18, 44);
-  }
+  text(label, 18, 26);
 }
 
 function drawTimelineProgress() {
@@ -573,6 +652,8 @@ function drawTimelineProgress() {
 
 function readableMomentLabel(labels, row) {
   if (!labels || labels.length === 0) return "quiet / low-signal moment";
+
+  if (labels.includes("timing_start")) return "";
 
   if (labels.includes("sexting")) return "sexual flirting / permitted contact";
   if (labels.includes("emotional_intimacy")) return "emotional intimacy";
@@ -596,6 +677,10 @@ function lerpState(a, b, amt) {
     "intimacy",
     "bigTone",
     "smallTone",
+    "warmthBig",
+    "warmthSmall",
+    "coolnessBig",
+    "coolnessSmall",
     "presenceBig",
     "presenceSmall",
     "communicationQuality",
