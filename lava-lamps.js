@@ -209,7 +209,7 @@ const fallbackScenes = [
 
 function preload() {
   loadJSON(
-    "data/textxml/conversation_state_timeline_apr29.json",
+    "data/conversation_state_timeline.json",
     data => {
       timeline = normalizeTimeline(data);
       usingRealData = timeline.length > 0;
