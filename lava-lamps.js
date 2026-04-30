@@ -2,6 +2,12 @@
   data_driven_lava_lamp_blobs.js
 
   p5.js lava-lamp relationship visualization driven by conversation_state_timeline.json
+
+  Updated:
+  - Blob A = person_1
+  - Blob B = person_2
+  - Per-person color, pursuit, avoidance, drinking, presence
+  - Keeps original lava-lamp / crescent / no-touch behavior
 */
 
 let t = 0;
@@ -10,141 +16,200 @@ let usingRealData = false;
 let currentFrame = 0;
 let playbackSpeed = 0.012;
 let smoothedState;
+
 let personA = "person_1";
 let personB = "person_2";
+
 let labelHold = "loading...";
 let lastDataError = "";
 
+let SHOW_PERSON_LABELS = false;
+
+// Recorder
+let recordingPlaybackSpeed = 0.12;
+let recorder;
+let recordedChunks = [];
+let recording = false;
+let recordingStartFrame = 0;
+
 // Smoothed color memory
-let smoothedBigColor;
-let smoothedSmallColor;
+let smoothedColorA;
+let smoothedColorB;
 
 const fallbackScenes = [
   {
     label: "warm bid for connection",
     distance: 0.45,
     intimacy: 0.65,
-    bigTone: 0.82,
-    smallTone: 0.72,
-    presenceBig: 0.75,
-    presenceSmall: 0.65,
+    toneA: 0.82,
+    toneB: 0.72,
+    warmthA: 0.72,
+    warmthB: 0.62,
+    coolnessA: 0.05,
+    coolnessB: 0.08,
+    presenceA: 0.75,
+    presenceB: 0.65,
     communicationQuality: 0.8,
-    flirt: constrain(max(sexualCharge, mutualWarmth * 0.6), 0, 1),
-    pursuitBig: 0.35,
-    pursuitSmall: 0.2,
-    avoidanceBig: 0.2,
-    avoidanceSmall: 0.2,
+    flirt: 0.1,
+    flirtA: 0.1,
+    flirtB: 0.05,
+    pursuitA: 0.35,
+    pursuitB: 0.2,
+    avoidanceA: 0.2,
+    avoidanceB: 0.2,
     activation: 0.45,
     asymmetry: 0.2,
     sexualCharge: 0.1,
-    drunkBig: 0,
-    drunkSmall: 0
+    sexualChargeA: 0.08,
+    sexualChargeB: 0.04,
+    drunkA: 0,
+    drunkB: 0
   },
   {
     label: "tender closeness",
     distance: 0.24,
     intimacy: 0.9,
-    bigTone: 0.95,
-    smallTone: 0.92,
-    presenceBig: 0.9,
-    presenceSmall: 0.85,
+    toneA: 0.95,
+    toneB: 0.92,
+    warmthA: 0.9,
+    warmthB: 0.86,
+    coolnessA: 0.02,
+    coolnessB: 0.02,
+    presenceA: 0.9,
+    presenceB: 0.85,
     communicationQuality: 0.9,
     flirt: 0.25,
-    pursuitBig: 0.25,
-    pursuitSmall: 0.25,
-    avoidanceBig: 0.25,
-    avoidanceSmall: 0.25,
+    flirtA: 0.24,
+    flirtB: 0.2,
+    pursuitA: 0.25,
+    pursuitB: 0.25,
+    avoidanceA: 0.25,
+    avoidanceB: 0.25,
     activation: 0.4,
     asymmetry: 0.08,
     sexualCharge: 0.2,
-    drunkBig: 0,
-    drunkSmall: 0
+    sexualChargeA: 0.14,
+    sexualChargeB: 0.16,
+    drunkA: 0,
+    drunkB: 0
   },
   {
     label: "sexual flirting / permitted contact",
     distance: 0.06,
     intimacy: 0.88,
-    bigTone: 0.92,
-    smallTone: 0.88,
-    presenceBig: 0.95,
-    presenceSmall: 0.9,
+    toneA: 0.92,
+    toneB: 0.88,
+    warmthA: 0.82,
+    warmthB: 0.8,
+    coolnessA: 0,
+    coolnessB: 0,
+    presenceA: 0.95,
+    presenceB: 0.9,
     communicationQuality: 0.85,
     flirt: 1.0,
-    pursuitBig: 0.45,
-    pursuitSmall: 0.42,
-    avoidanceBig: 0.0,
-    avoidanceSmall: 0.0,
+    flirtA: 1.0,
+    flirtB: 0.85,
+    pursuitA: 0.45,
+    pursuitB: 0.42,
+    avoidanceA: 0.0,
+    avoidanceB: 0.0,
     activation: 0.85,
     asymmetry: 0.05,
     sexualCharge: 1.0,
-    drunkBig: 0,
-    drunkSmall: 0
+    sexualChargeA: 1.0,
+    sexualChargeB: 0.8,
+    drunkA: 0,
+    drunkB: 0
   },
   {
     label: "avoidance / crescent around closeness",
     distance: 0.18,
     intimacy: 0.55,
-    bigTone: 0.22,
-    smallTone: 0.72,
-    presenceBig: 0.5,
-    presenceSmall: 0.75,
+    toneA: 0.22,
+    toneB: 0.72,
+    warmthA: 0.18,
+    warmthB: 0.65,
+    coolnessA: 0.72,
+    coolnessB: 0.18,
+    presenceA: 0.5,
+    presenceB: 0.75,
     communicationQuality: 0.35,
     flirt: 0.0,
-    pursuitBig: 0.05,
-    pursuitSmall: 0.18,
-    avoidanceBig: 1.0,
-    avoidanceSmall: 0.25,
+    flirtA: 0.0,
+    flirtB: 0.0,
+    pursuitA: 0.05,
+    pursuitB: 0.18,
+    avoidanceA: 1.0,
+    avoidanceB: 0.25,
     activation: 0.55,
     asymmetry: 0.65,
     sexualCharge: 0.0,
-    drunkBig: 0,
-    drunkSmall: 0
+    sexualChargeA: 0,
+    sexualChargeB: 0,
+    drunkA: 0,
+    drunkB: 0
   },
   {
     label: "rupture / hurt distance",
     distance: 0.9,
     intimacy: 0.12,
-    bigTone: 0.08,
-    smallTone: 0.18,
-    presenceBig: 0.35,
-    presenceSmall: 0.55,
+    toneA: 0.08,
+    toneB: 0.18,
+    warmthA: 0.05,
+    warmthB: 0.12,
+    coolnessA: 0.85,
+    coolnessB: 0.62,
+    presenceA: 0.35,
+    presenceB: 0.55,
     communicationQuality: 0.12,
     flirt: 0.0,
-    pursuitBig: 0.05,
-    pursuitSmall: 0.05,
-    avoidanceBig: 0.75,
-    avoidanceSmall: 0.55,
+    flirtA: 0.0,
+    flirtB: 0.0,
+    pursuitA: 0.05,
+    pursuitB: 0.05,
+    avoidanceA: 0.75,
+    avoidanceB: 0.55,
     activation: 0.2,
     asymmetry: 0.25,
     sexualCharge: 0.0,
-    drunkBig: 0.8,
-    drunkSmall: 0
+    sexualChargeA: 0,
+    sexualChargeB: 0,
+    drunkA: 0.8,
+    drunkB: 0
   },
   {
     label: "pursuit after withdrawal",
     distance: 0.78,
     intimacy: 0.38,
-    bigTone: 0.58,
-    smallTone: 0.24,
-    presenceBig: 0.78,
-    presenceSmall: 0.45,
+    toneA: 0.58,
+    toneB: 0.24,
+    warmthA: 0.55,
+    warmthB: 0.2,
+    coolnessA: 0.18,
+    coolnessB: 0.65,
+    presenceA: 0.78,
+    presenceB: 0.45,
     communicationQuality: 0.45,
     flirt: 0.0,
-    pursuitBig: 1.0,
-    pursuitSmall: 0.08,
-    avoidanceBig: 0.15,
-    avoidanceSmall: 0.62,
+    flirtA: 0.0,
+    flirtB: 0.0,
+    pursuitA: 1.0,
+    pursuitB: 0.08,
+    avoidanceA: 0.15,
+    avoidanceB: 0.62,
     activation: 0.62,
     asymmetry: 0.8,
     sexualCharge: 0.0,
-    drunkBig: 0,
-    drunkSmall: 0
+    sexualChargeA: 0,
+    sexualChargeB: 0,
+    drunkA: 0,
+    drunkB: 0
   }
 ];
 
 function preload() {
   loadJSON(
-    "conversation_state_timeline.json",
+    "data/textxml/conversation_state_timeline_apr29.json",
     data => {
       timeline = normalizeTimeline(data);
       usingRealData = timeline.length > 0;
@@ -158,7 +223,7 @@ function preload() {
 }
 
 function setup() {
-  createCanvas(700, 700);
+  createCanvas(900, 900);
   frameRate(60);
   textFont("Georgia");
 
@@ -175,7 +240,6 @@ function setup() {
 function draw() {
   background(245);
 
-  // Slower, more relaxing lava-lamp motion
   t += 0.007 + smoothedState.activation * 0.006;
 
   const targetState = getTargetState();
@@ -184,6 +248,19 @@ function draw() {
   drawLavaLamp(smoothedState);
   drawLabels(smoothedState);
   drawTimelineProgress();
+  if (recording) {
+  fill(0);
+  noStroke();
+  textSize(12);
+  textAlign(RIGHT);
+
+  const percent = floor((currentFrame / max(1, timeline.length - 1)) * 100);
+  text(`recording ${min(percent, 100)}%`, width - 18, 20);
+
+  if (usingRealData && currentFrame >= timeline.length - 2) {
+    stopRecording();
+  }
+}
 }
 
 function getTargetState() {
@@ -231,9 +308,15 @@ function detectPeople(row) {
   });
 
   const people = Array.from(prefixes).sort();
-  if (people.length >= 2) {
-    personA = people[0];
-    personB = people[1];
+
+  if (people.includes("person_1")) personA = "person_1";
+  if (people.includes("person_2")) personB = "person_2";
+
+  if (!people.includes("person_1") || !people.includes("person_2")) {
+    if (people.length >= 2) {
+      personA = people[0];
+      personB = people[1];
+    }
   }
 }
 
@@ -256,21 +339,38 @@ function stateFromTimelineRow(row) {
   const aActivation = getNum(row, `${a}_activation`);
   const bActivation = getNum(row, `${b}_activation`);
 
-  const aDrunk = max(
-    getNum(row, `${a}_drunk`),
-    getNum(row, `${a}_drinking`)
-  );
+  const aSexting = getNum(row, `${a}_sexting`);
+  const bSexting = getNum(row, `${b}_sexting`);
+  const aConnectionBid = getNum(row, `${a}_connection_bid`);
+  const bConnectionBid = getNum(row, `${b}_connection_bid`);
+  const aEmotionalIntimacy = getNum(row, `${a}_emotional_intimacy`);
+  const bEmotionalIntimacy = getNum(row, `${b}_emotional_intimacy`);
 
-  const bDrunk = max(
-    getNum(row, `${b}_drunk`),
-    getNum(row, `${b}_drinking`)
-  );
+  const aDrunk = max(getNum(row, `${a}_drunk`), getNum(row, `${a}_drinking`));
+  const bDrunk = max(getNum(row, `${b}_drunk`), getNum(row, `${b}_drinking`));
 
   const mutualWarmth = getNum(row, "mutual_warmth");
   const mutualIntimacy = getNum(row, "mutual_intimacy");
-  const sexualCharge = getNum(row, "sexual_charge");
   const asymmetry = getNum(row, "asymmetry");
   const approachAvoidance = getNum(row, "approach_avoidance", 0.5);
+
+  const sexualChargeA = constrain(aSexting, 0, 1);
+  const sexualChargeB = constrain(bSexting, 0, 1);
+  const sexualCharge = constrain((sexualChargeA + sexualChargeB) / 2, 0, 1);
+
+  const flirtA = constrain(
+    max(aSexting, aConnectionBid * 0.25, aEmotionalIntimacy * 0.2),
+    0,
+    1
+  );
+
+  const flirtB = constrain(
+    max(bSexting, bConnectionBid * 0.25, bEmotionalIntimacy * 0.2),
+    0,
+    1
+  );
+
+  const flirt = constrain(max(sexualCharge, mutualWarmth * 0.45), 0, 1);
 
   const labels = String(row.labels || "").split("|").filter(Boolean);
   const label = readableMomentLabel(labels, row);
@@ -279,6 +379,7 @@ function stateFromTimelineRow(row) {
     label,
     datetime: row.datetime || "",
     labels,
+    sender: row.sender || "",
 
     distance: constrain(
       1 - approachAvoidance + asymmetry * 0.22 - mutualWarmth * 0.16,
@@ -288,25 +389,25 @@ function stateFromTimelineRow(row) {
 
     intimacy: constrain(mutualWarmth * 0.52 + mutualIntimacy * 0.48, 0, 1),
 
-    warmthBig: constrain(aWarmth, 0, 1),
-    warmthSmall: constrain(bWarmth, 0, 1),
-    coolnessBig: constrain(aCoolness, 0, 1),
-    coolnessSmall: constrain(bCoolness, 0, 1),
+    warmthA: constrain(aWarmth, 0, 1),
+    warmthB: constrain(bWarmth, 0, 1),
+    coolnessA: constrain(aCoolness, 0, 1),
+    coolnessB: constrain(bCoolness, 0, 1),
 
-    bigTone: constrain(
-      0.42 + aWarmth * 0.58 - aCoolness * 0.48 + sexualCharge * 0.25,
+    toneA: constrain(
+      0.42 + aWarmth * 0.58 - aCoolness * 0.48 + sexualChargeA * 0.25,
       0,
       1
     ),
 
-    smallTone: constrain(
-      0.42 + bWarmth * 0.58 - bCoolness * 0.48 + sexualCharge * 0.25,
+    toneB: constrain(
+      0.42 + bWarmth * 0.58 - bCoolness * 0.48 + sexualChargeB * 0.25,
       0,
       1
     ),
 
-    presenceBig: constrain(0.45 + aVolume * 0.55, 0, 1),
-    presenceSmall: constrain(0.45 + bVolume * 0.55, 0, 1),
+    presenceA: constrain(0.45 + aVolume * 0.55, 0, 1),
+    presenceB: constrain(0.45 + bVolume * 0.55, 0, 1),
 
     communicationQuality: constrain(
       0.25 + mutualWarmth * 0.5 + (aVolume + bVolume) * 0.16,
@@ -314,21 +415,25 @@ function stateFromTimelineRow(row) {
       1
     ),
 
-    flirt: constrain(sexualCharge, 0, 1),
+    flirt,
+    flirtA,
+    flirtB,
+
     sexualCharge,
+    sexualChargeA,
+    sexualChargeB,
 
-    pursuitBig: constrain(aPursuit, 0, 1),
-    pursuitSmall: constrain(bPursuit, 0, 1),
+    pursuitA: constrain(aPursuit, 0, 1),
+    pursuitB: constrain(bPursuit, 0, 1),
 
-    avoidanceBig: constrain(aWithdrawal + aCoolness * 0.35, 0, 1),
-    avoidanceSmall: constrain(bWithdrawal + bCoolness * 0.35, 0, 1),
+    avoidanceA: constrain(aWithdrawal + aCoolness * 0.35, 0, 1),
+    avoidanceB: constrain(bWithdrawal + bCoolness * 0.35, 0, 1),
 
-    drunkBig: constrain(aDrunk, 0, 1),
-    drunkSmall: constrain(bDrunk, 0, 1),
+    drunkA: constrain(aDrunk, 0, 1),
+    drunkB: constrain(bDrunk, 0, 1),
 
     activation: constrain((aActivation + bActivation) / 2 + asymmetry * 0.25, 0, 1),
-    asymmetry,
-    sender: row.sender || ""
+    asymmetry
   };
 }
 
@@ -337,11 +442,10 @@ function drawLavaLamp(state) {
   const cy = height / 2 + 4;
 
   const baseR = map(state.communicationQuality, 0, 1, 54, 86);
-  const bigR = baseR * map(state.presenceBig, 0, 1, 0.78, 1.28);
-  const smallR = baseR * map(state.presenceSmall, 0, 1, 0.78, 1.28);
+  const rA = baseR * map(state.presenceA, 0, 1, 0.78, 1.28);
+  const rB = baseR * map(state.presenceB, 0, 1, 0.78, 1.28);
 
-  const withdrawalDistance =
-    max(state.avoidanceBig, state.avoidanceSmall) * 72;
+  const withdrawalDistance = max(state.avoidanceA, state.avoidanceB) * 72;
 
   const distancePush =
     map(state.distance, 0, 1, 42, 205) + withdrawalDistance;
@@ -349,80 +453,88 @@ function drawLavaLamp(state) {
   const orbitX = distancePush + state.asymmetry * 34;
   const orbitY = map(state.distance, 0, 1, 26, 120);
 
-  const bigPursuitSpeed = 1 + state.pursuitBig * 1.08;
-  const smallPursuitSpeed = 1 + state.pursuitSmall * 1.08;
+  const pursuitSpeedA = 1 + state.pursuitA * 1.08;
+  const pursuitSpeedB = 1 + state.pursuitB * 1.08;
 
-  const bigLag = map(state.drunkBig || 0, 0, 1, 1, 0.72);
-  const smallLag = map(state.drunkSmall || 0, 0, 1, 1, 0.72);
+  const lagA = map(state.drunkA || 0, 0, 1, 1, 0.72);
+  const lagB = map(state.drunkB || 0, 0, 1, 1, 0.72);
 
-  let big = createVector(
-    cx + cos(t * 0.38 * bigPursuitSpeed * bigLag + PI) * orbitX * 0.33,
-    cy + sin(t * 0.56 * bigLag) * orbitY * 0.28
+  let blobA = createVector(
+    cx + cos(t * 0.34 * pursuitSpeedA * lagA + 2.65) * orbitX * 0.52,
+    cy + sin(t * 0.53 * lagA + 0.4) * orbitY * 0.42
   );
 
-  let small = createVector(
-    cx + cos(t * 0.9 * smallPursuitSpeed * smallLag) * orbitX,
-    cy + sin(t * 1.0 * smallLag) * orbitY
+  let blobB = createVector(
+    cx + cos(t * 0.82 * pursuitSpeedB * lagB + 5.1) * orbitX * 0.95,
+    cy + sin(t * 0.93 * lagB + 1.45) * orbitY * 0.88
   );
 
-  const bigDrift = state.drunkBig || 0;
-  const smallDrift = state.drunkSmall || 0;
+  const driftA = state.drunkA || 0;
+  const driftB = state.drunkB || 0;
 
-  big.x += sin(t * 0.28 + 1.7) * 18 * bigDrift;
-  big.y += cos(t * 0.22 + 0.6) * 14 * bigDrift;
+  blobA.x += sin(t * 0.28 + 1.7) * 18 * driftA;
+  blobA.y += cos(t * 0.22 + 0.6) * 14 * driftA;
 
-  small.x += sin(t * 0.31 + 2.4) * 18 * smallDrift;
-  small.y += cos(t * 0.23 + 1.2) * 14 * smallDrift;
+  blobB.x += sin(t * 0.31 + 2.4) * 18 * driftB;
+  blobB.y += cos(t * 0.23 + 1.2) * 14 * driftB;
 
-  applyAvoidance(big, small, bigR, smallR, state.avoidanceBig, true);
-  applyAvoidance(small, big, smallR, bigR, state.avoidanceSmall, false);
+  applyAvoidance(blobA, blobB, rA, rB, state.avoidanceA, true);
+  applyAvoidance(blobB, blobA, rB, rA, state.avoidanceB, false);
 
-  applyPursuit(big, small, state.pursuitBig, state.flirt);
-  applyPursuit(small, big, state.pursuitSmall, state.flirt);
+  applyPursuit(blobA, blobB, state.pursuitA, state.flirt);
+  applyPursuit(blobB, blobA, state.pursuitB, state.flirt);
 
-  enforceNoTouch(big, small, bigR, smallR, state);
+  enforceNoTouch(blobA, blobB, rA, rB, state);
 
-  const targetBigColor = emotionalColor(
-    state.warmthBig,
-    state.coolnessBig,
-    state.flirt,
-    state.sexualCharge
+  const targetColorA = emotionalColor(
+    state.warmthA,
+    state.coolnessA,
+    state.flirtA,
+    state.sexualChargeA
   );
 
-  const targetSmallColor = emotionalColor(
-    state.warmthSmall,
-    state.coolnessSmall,
-    state.flirt,
-    state.sexualCharge
+  const targetColorB = emotionalColor(
+    state.warmthB,
+    state.coolnessB,
+    state.flirtB,
+    state.sexualChargeB
   );
 
-  if (!smoothedBigColor) smoothedBigColor = targetBigColor;
-  if (!smoothedSmallColor) smoothedSmallColor = targetSmallColor;
+  if (!smoothedColorA) smoothedColorA = targetColorA;
+  if (!smoothedColorB) smoothedColorB = targetColorB;
 
-  smoothedBigColor = lerpColor(smoothedBigColor, targetBigColor, 0.025);
-  smoothedSmallColor = lerpColor(smoothedSmallColor, targetSmallColor, 0.025);
+  smoothedColorA = lerpColor(smoothedColorA, targetColorA, 0.025);
+  smoothedColorB = lerpColor(smoothedColorB, targetColorB, 0.025);
 
-  drawGlow(big, bigR, smoothedBigColor, state, state.drunkBig || 0);
-  drawGlow(small, smallR, smoothedSmallColor, state, state.drunkSmall || 0);
+  drawGlow(blobA, rA, smoothedColorA, state, state.drunkA || 0);
+  drawGlow(blobB, rB, smoothedColorB, state, state.drunkB || 0);
 
-  drawBlob(big.x, big.y, bigR, small, true, smoothedBigColor, {
+  drawBlob(blobA.x, blobA.y, rA, blobB, true, smoothedColorA, {
     ...state,
-    pursuit: state.pursuitBig,
-    avoidance: state.avoidanceBig
+    pursuit: state.pursuitA,
+    avoidance: state.avoidanceA,
+    drunkLocal: state.drunkA,
+    flirtLocal: state.flirtA
   });
 
-  drawBlob(small.x, small.y, smallR, big, false, smoothedSmallColor, {
+  drawBlob(blobB.x, blobB.y, rB, blobA, false, smoothedColorB, {
     ...state,
-    pursuit: state.pursuitSmall,
-    avoidance: state.avoidanceSmall
+    pursuit: state.pursuitB,
+    avoidance: state.avoidanceB,
+    drunkLocal: state.drunkB,
+    flirtLocal: state.flirtB
   });
 
-  if (state.flirt > 0.72) {
-    drawSoftContact(big, small, bigR, smallR, state, smoothedBigColor, smoothedSmallColor);
+  if (state.flirt > 0.72 || state.sexualCharge > 0.72) {
+    drawSoftContact(blobA, blobB, rA, rB, state, smoothedColorA, smoothedColorB);
+  }
+
+  if (SHOW_PERSON_LABELS) {
+    drawPersonLabels(blobA, blobB);
   }
 }
 
-function applyAvoidance(self, other, selfR, otherR, avoidance, isBig) {
+function applyAvoidance(self, other, selfR, otherR, avoidance, isA) {
   const away = p5.Vector.sub(self, other);
   const d = max(away.mag(), 0.001);
   away.normalize();
@@ -434,7 +546,7 @@ function applyAvoidance(self, other, selfR, otherR, avoidance, isBig) {
   );
 
   const sidestep = createVector(-away.y, away.x);
-  const crescentBias = isBig ? 1 : -1;
+  const crescentBias = isA ? 1 : -1;
 
   self.add(away.mult(closeness * avoidance * 26));
   self.add(sidestep.mult(closeness * avoidance * 19 * crescentBias));
@@ -447,28 +559,29 @@ function applyPursuit(self, other, pursuit, flirt) {
 
   const allowedPull = pursuit * (flirt > 0.72 ? 15 : 9);
   const farness = constrain(map(d, 40, 240, 0, 1), 0, 1);
+
   self.add(toward.mult(allowedPull * farness));
 }
 
-function enforceNoTouch(big, small, bigR, smallR, state) {
-  if (state.flirt > 0.72) return;
+function enforceNoTouch(blobA, blobB, rA, rB, state) {
+  if (state.flirt > 0.72 || state.sexualCharge > 0.72) return;
 
   const minGap =
     12 +
     state.asymmetry * 12 +
-    max(state.avoidanceBig, state.avoidanceSmall) * 12;
+    max(state.avoidanceA, state.avoidanceB) * 12;
 
-  const minDist = bigR + smallR + minGap;
-  const actualDist = p5.Vector.dist(big, small);
+  const minDist = rA + rB + minGap;
+  const actualDist = p5.Vector.dist(blobA, blobB);
 
   if (actualDist < minDist) {
-    const push = p5.Vector.sub(small, big).normalize();
+    const push = p5.Vector.sub(blobB, blobA).normalize();
     const needed = minDist - actualDist;
-    small.add(push.mult(needed));
+    blobB.add(push.mult(needed));
   }
 }
 
-function drawBlob(x, y, r, other, isBig, c, state) {
+function drawBlob(x, y, r, other, isA, c, state) {
   push();
   translate(x, y);
   noStroke();
@@ -481,7 +594,7 @@ function drawBlob(x, y, r, other, isBig, c, state) {
   for (let i = 0; i < points; i++) {
     const a = map(i, 0, points, 0, TWO_PI);
 
-    const drunkFactor = isBig ? state.drunkBig || 0 : state.drunkSmall || 0;
+    const drunkFactor = state.drunkLocal || 0;
 
     const agitation =
       0.52 +
@@ -547,7 +660,7 @@ function drawBlob(x, y, r, other, isBig, c, state) {
       exp(-pow(diff, 2) * 20) *
       r *
       0.42 *
-      state.flirt;
+      state.flirtLocal;
 
     const rr = max(8, r + wobble + deform + drunkMelt + drunkSlosh);
     curveVertex(cos(a) * rr, sin(a) * rr);
@@ -582,15 +695,15 @@ function drawGlow(pos, r, c, state, drunkFactor = 0) {
   pop();
 }
 
-function drawSoftContact(big, small, bigR, smallR, state, bigColor, smallColor) {
-  const d = p5.Vector.dist(big, small);
-  const maxContactDist = bigR + smallR + 20;
+function drawSoftContact(blobA, blobB, rA, rB, state, colorA, colorB) {
+  const d = p5.Vector.dist(blobA, blobB);
+  const maxContactDist = rA + rB + 20;
   if (d > maxContactDist) return;
 
-  const contactColor = lerpColor(bigColor, smallColor, 0.5);
+  const contactColor = lerpColor(colorA, colorB, 0.5);
   contactColor.setAlpha(175);
 
-  const mid = p5.Vector.lerp(big, small, 0.5);
+  const mid = p5.Vector.lerp(blobA, blobB, 0.5);
 
   noStroke();
   fill(contactColor);
@@ -632,6 +745,38 @@ function drawLabels(state) {
 
   textSize(14);
   text(label, 18, 26);
+
+  if (state.datetime) {
+    textSize(11);
+    fill(70);
+    text(formatDate(state.datetime), 18, 43);
+  }
+}
+
+function drawPersonLabels(blobA, blobB) {
+  push();
+  textAlign(CENTER);
+  textSize(12);
+  noStroke();
+  rectMode(CENTER);
+
+  fill(255, 255, 255, 185);
+  const labelA = personA;
+  const wA = textWidth(labelA) + 12;
+  rect(blobA.x, blobA.y - 32, wA, 18, 6);
+
+  fill(30);
+  text(labelA, blobA.x, blobA.y - 28);
+
+  fill(255, 255, 255, 185);
+  const labelB = personB;
+  const wB = textWidth(labelB) + 12;
+  rect(blobB.x, blobB.y - 32, wB, 18, 6);
+
+  fill(30);
+  text(labelB, blobB.x, blobB.y - 28);
+
+  pop();
 }
 
 function drawTimelineProgress() {
@@ -672,28 +817,33 @@ function readableMomentLabel(labels, row) {
 
 function lerpState(a, b, amt) {
   const out = { ...a };
+
   const keys = [
     "distance",
     "intimacy",
-    "bigTone",
-    "smallTone",
-    "warmthBig",
-    "warmthSmall",
-    "coolnessBig",
-    "coolnessSmall",
-    "presenceBig",
-    "presenceSmall",
+    "toneA",
+    "toneB",
+    "warmthA",
+    "warmthB",
+    "coolnessA",
+    "coolnessB",
+    "presenceA",
+    "presenceB",
     "communicationQuality",
     "flirt",
-    "pursuitBig",
-    "pursuitSmall",
-    "avoidanceBig",
-    "avoidanceSmall",
+    "flirtA",
+    "flirtB",
+    "pursuitA",
+    "pursuitB",
+    "avoidanceA",
+    "avoidanceB",
     "activation",
     "asymmetry",
     "sexualCharge",
-    "drunkBig",
-    "drunkSmall"
+    "sexualChargeA",
+    "sexualChargeB",
+    "drunkA",
+    "drunkB"
   ];
 
   keys.forEach(key => {
@@ -732,4 +882,62 @@ function formatDate(value) {
 
 function easeInOut(x) {
   return x < 0.5 ? 2 * x * x : 1 - pow(-2 * x + 2, 2) / 2;
+}
+
+function startRecording() {
+  if (recording) return;
+
+  const canvas = document.querySelector("canvas");
+  const stream = canvas.captureStream(60);
+
+  recordedChunks = [];
+
+  let options = { mimeType: "video/webm;codecs=vp9" };
+  if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+    options = { mimeType: "video/webm;codecs=vp8" };
+  }
+
+  recorder = new MediaRecorder(stream, options);
+
+  recorder.ondataavailable = e => {
+    if (e.data.size > 0) recordedChunks.push(e.data);
+  };
+
+  recorder.onstop = () => {
+    const blob = new Blob(recordedChunks, { type: "video/webm" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "lava_lamp_blobs.webm";
+    a.click();
+
+    URL.revokeObjectURL(url);
+  };
+
+  currentFrame = 0;
+  playbackSpeed = recordingPlaybackSpeed;
+  recordingStartFrame = frameCount;
+  recording = true;
+  recorder.start();
+
+  console.log("Recording started");
+}
+
+function stopRecording() {
+  if (!recording) return;
+
+  recording = false;
+  playbackSpeed = 0.012;
+
+  if (recorder && recorder.state !== "inactive") {
+    recorder.stop();
+  }
+
+  console.log("Recording stopped");
+}
+
+function keyPressed() {
+  if (key === "r" || key === "R") startRecording();
+  if (key === "s" || key === "S") stopRecording();
 }
