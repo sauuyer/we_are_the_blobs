@@ -240,10 +240,10 @@ function setup() {
 function draw() {
   background(245);
 
-  t += 0.007 + smoothedState.activation * 0.006;
+  t += 0.007 + smoothedState.activation * 0.002;
 
   const targetState = getTargetState();
-  smoothedState = smoothState(smoothedState, targetState, 0.026);
+  smoothedState = smoothState(smoothedState, targetState, 0.012);
 
   drawLavaLamp(smoothedState);
   drawLabels(smoothedState);
