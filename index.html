@@ -2,12 +2,395 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>we are the blobs lava lamp</title>
+  <title>we are the blobs</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.9.0/lib/p5.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      background: #f5f5f5;
+      font-family: 'IBM Plex Mono', monospace;
+      color: #111;
+    }
+
+    .container {
+      width: 900px;
+      margin: 0 auto;
+      padding: 40px 20px 80px;
+    }
+
+    h1 {
+      font-size: 64px;
+      font-weight: 500;
+      margin: 0 0 20px;
+      letter-spacing: -1px;
+    }
+
+    .subtitle {
+      font-size: 16px;
+      color: #666;
+      margin-bottom: 30px;
+    }
+
+    .hero-image,
+    .still-image {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .hero-image {
+      margin-bottom: 10px;
+    }
+
+    .description {
+      font-size: 16px;
+      line-height: 1.6;
+      margin-bottom: 40px;
+      white-space: pre-wrap;
+    }
+
+    .section-header {
+      font-size: 18px;
+      margin: 40px 0 10px;
+      color: #111;
+    }
+
+    .section-subheader {
+      font-size: 13px;
+      text-transform: lowercase;
+      letter-spacing: 1px;
+      margin: 0 0 16px;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 6px;
+      color: #111;
+    }
+
+    .section-note {
+      font-size: 13px;
+      line-height: 1.6;
+      margin: 0 0 24px;
+      color: #555;
+    }
+
+    .still-block {
+      margin-bottom: 60px;
+    }
+
+    .data-block {
+      background: #111;
+      color: #9de7ee;
+      padding: 20px;
+      font-size: 12px;
+      line-height: 1.5;
+      overflow-x: auto;
+      border-radius: 4px;
+      margin: 0;
+    }
+
+    .grammar-list {
+      display: grid;
+      gap: 10px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .grammar-item {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 18px;
+      padding: 10px 0;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .grammar-term {
+      font-weight: 500;
+    }
+
+    .grammar-meaning {
+      color: #666;
+    }
+
+    #canvas-container {
+      width: 100%;
+      margin-top: 40px;
+    }
+
+    canvas {
+      display: block;
+      margin: 0 auto;
+      border: 1px solid #ddd;
+    }
+  </style>
 </head>
+
 <body>
-  <script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/ccapture.js@1.1.0/build/CCapture.all.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/p5@1.9.3/lib/p5.min.js"></script>
+  <div class="container">
+
+    <h1>we are the blobs</h1>
+
+    <img src="stills/title_still_1.png" class="hero-image" alt="project image">
+    <div class="subtitle">a relationship lava lamp</div>
+
+    <div class="description">
+A digital lava lamp visualizing the conversational dynamics of two people...
+
+Each blob reflects a person.
+    </div>
+
+    <!-- INPUT DATA -->
+    <h2 class="section-header">input data</h2>
+    <p class="section-note">
+      this is a snippet of the data generated from the state engine.
+    </p>
+
+<pre class="data-block">{ 
+  "message_index": 729,
+  "datetime": "2025-05-12T23:20:56.165000",
+  "sender": "person_2",
+  "labels": "timing_repeated_send",
+  "text_was_redacted": false,
+  "hours_since_previous_message": 0.0024,
+  "mutual_warmth": 0.9697,
+  "mutual_intimacy": 0.4822,
+  "sexual_charge": 0.991,
+  "asymmetry": 0.0022,
+  "approach_avoidance": 0.9987,
+  "person_1_excitement": 0.9533,
+  "person_1_connection_bid": 0.9986,
+  "person_1_dismissal": 0.7004,
+  "person_1_withdrawal": 1.0,
+  "person_1_sexting": 0.9947,
+  "person_1_emotional_intimacy": 0.8185,
+  "person_1_flatness": 0.0,
+  "person_1_initiation": 0.0039,
+  "person_1_pursuit": 0.9965,
+  "person_1_drinking": 0.0,
+  "person_1_warmth": 0.9394,
+  "person_1_coolness": 1.0,
+  "person_1_activation": 0.9997,
+  "person_1_proximity_desire": 0.9976,
+  "person_1_communication_volume": 0.9988,
+  "person_2_excitement": 0.9953,
+  "person_2_connection_bid": 0.9998,
+  "person_2_dismissal": 0.0328,
+  "person_2_withdrawal": 0.9992,
+  "person_2_sexting": 0.9873,
+  "person_2_emotional_intimacy": 0.1459,
+  "person_2_flatness": 0.0,
+  "person_2_initiation": 0.4125,
+  "person_2_pursuit": 1.0,
+  "person_2_drinking": 0.0,
+  "person_2_warmth": 1.0,
+  "person_2_coolness": 0.9996,
+  "person_2_activation": 1.0,
+  "person_2_proximity_desire": 1.0,
+  "person_2_communication_volume": 1.0
+ }</pre>
+
+    <!-- VISUAL GRAMMAR -->
+    <h2 class="section-header">visual grammar</h2><br><br>
+
+    <h3 class="section-subheader">color</h3>
+    <div class="grammar-list">
+      <div class="grammar-item"><span class="grammar-term">grey</span><span class="grammar-meaning">low signal / neutral</span></div>
+      <div class="grammar-item"><span class="grammar-term">blue</span><span class="grammar-meaning">coolness / distance</span></div>
+      <div class="grammar-item"><span class="grammar-term">orange</span><span class="grammar-meaning">warmth</span></div>
+      <div class="grammar-item"><span class="grammar-term">pink</span><span class="grammar-meaning">flirty</span></div>
+    </div>
+
+<br><br>
+
+    <h3 class="section-subheader">size</h3>
+    <div class="grammar-list">
+      <div class="grammar-item"><span class="grammar-term">larger</span><span class="grammar-meaning">more presence</span></div>
+      <div class="grammar-item"><span class="grammar-term">smaller</span><span class="grammar-meaning">less presence</span></div>
+    </div>
+
+    <br><br>
+
+    <h3 class="section-subheader">movement</h3>
+    <div class="grammar-list">
+      <div class="grammar-item"><span class="grammar-term">drifting</span><span class="grammar-meaning">baseline motion</span></div>
+      <div class="grammar-item"><span class="grammar-term">orbiting</span><span class="grammar-meaning">pursuit</span></div>
+      <div class="grammar-item"><span class="grammar-term">tension</span><span class="grammar-meaning">push/pull</span></div>
+    </div>
+
+    <br><br>
+
+    <h3 class="section-subheader">proximity & distance</h3>
+    <div class="grammar-list">
+      <div class="grammar-item"><span class="grammar-term">close</span><span class="grammar-meaning">intimacy</span></div>
+      <div class="grammar-item"><span class="grammar-term">far</span><span class="grammar-meaning">distance</span></div>
+    </div>
+
+    <!-- STILLS -->
+    <h2 class="section-header">relationship stills</h2>
+
+    <section class="still-block">
+      <h3 class="section-subheader">warm closeness</h3>
+      <img src="stills/warmcloseness.png" class="still-image">
+      <pre class="data-block">{
+        "label": "warm closeness",
+        "distance": 0.18,
+        "intimacy": 0.92,
+        "warmthA": 0.9,
+        "warmthB": 0.86,
+        "coolnessA": 0.02,
+        "coolnessB": 0.02,
+        "presenceA": 0.9,
+        "presenceB": 0.88,
+        "communicationQuality": 0.9,
+        "flirt": 0.25,
+        "flirtA": 0.18,
+        "flirtB": 0.18,
+        "pursuitA": 0.28,
+        "pursuitB": 0.28,
+        "avoidanceA": 0.08,
+        "avoidanceB": 0.08,
+        "activation": 0.38,
+        "asymmetry": 0.06,
+        "sexualCharge": 0.12,
+        "sexualChargeA": 0.08,
+        "sexualChargeB": 0.08,
+        "drunkA": 0,
+        "drunkB": 0
+      }</pre>
+    </section>
+
+    <section class="still-block">
+      <h3 class="section-subheader">pursuit after a withdrawal-er</h3>
+      <img src="stills/pursuit.png" class="still-image">
+      <pre class="data-block">{
+        "label": "pursuit after a withdrawal-er",
+        "distance": 0.76,
+        "intimacy": 0.34,
+        "warmthA": 0.58,
+        "warmthB": 0.2,
+        "coolnessA": 0.14,
+        "coolnessB": 0.68,
+        "presenceA": 0.82,
+        "presenceB": 0.46,
+        "communicationQuality": 0.42,
+        "flirt": 0.02,
+        "flirtA": 0,
+        "flirtB": 0,
+        "pursuitA": 1.0,
+        "pursuitB": 0.05,
+        "avoidanceA": 0.12,
+        "avoidanceB": 0.72,
+        "activation": 0.62,
+        "asymmetry": 0.82,
+        "sexualCharge": 0,
+        "sexualChargeA": 0,
+        "sexualChargeB": 0,
+        "drunkA": 0,
+        "drunkB": 0
+      }</pre>
+    </section>
+
+    <section class="still-block">
+      <h3 class="section-subheader">coolness / rupture</h3>
+      <img src="stills/rupture.png" class="still-image">
+      <pre class="data-block">{
+        "label": "coolness/rupture",
+        "distance": 0.22,
+        "intimacy": 0.5,
+        "warmthA": 0.2,
+        "warmthB": 0.66,
+        "coolnessA": 0.75,
+        "coolnessB": 0.16,
+        "presenceA": 0.55,
+        "presenceB": 0.78,
+        "communicationQuality": 0.34,
+        "flirt": 0,
+        "flirtA": 0,
+        "flirtB": 0,
+        "pursuitA": 0.04,
+        "pursuitB": 0.22,
+        "avoidanceA": 1.0,
+        "avoidanceB": 0.2,
+        "activation": 0.54,
+        "asymmetry": 0.66,
+        "sexualCharge": 0,
+        "sexualChargeA": 0,
+        "sexualChargeB": 0,
+        "drunkA": 0,
+        "drunkB": 0
+      }</pre>
+    </section>
+
+    <section class="still-block">
+      <h3 class="section-subheader">mutual flirting</h3>
+      <img src="stills/flirting.png" class="still-image">
+      <pre class="data-block">{
+        "label": "mutual flirting",
+        "distance": 0.05,
+        "intimacy": 0.9,
+        "warmthA": 0.82,
+        "warmthB": 0.8,
+        "coolnessA": 0,
+        "coolnessB": 0,
+        "presenceA": 0.95,
+        "presenceB": 0.9,
+        "communicationQuality": 0.86,
+        "flirt": 1.0,
+        "flirtA": 1.0,
+        "flirtB": 0.86,
+        "pursuitA": 0.44,
+        "pursuitB": 0.42,
+        "avoidanceA": 0,
+        "avoidanceB": 0,
+        "activation": 0.82,
+        "asymmetry": 0.04,
+        "sexualCharge": 1.0,
+        "sexualChargeA": 1.0,
+        "sexualChargeB": 0.82,
+        "drunkA": 0,
+        "drunkB": 0
+      }</pre>
+    </section>
+
+    <section class="still-block">
+      <h3 class="section-subheader">coolness and distance</h3>
+      <img src="stills/distance.png" class="still-image">
+      <pre class="data-block">{
+        "label": "coolness and distance",
+        "distance": 0.88,
+        "intimacy": 0.12,
+        "warmthA": 0.08,
+        "warmthB": 0.14,
+        "coolnessA": 0.82,
+        "coolnessB": 0.62,
+        "presenceA": 0.38,
+        "presenceB": 0.56,
+        "communicationQuality": 0.14,
+        "flirt": 0,
+        "flirtA": 0,
+        "flirtB": 0,
+        "pursuitA": 0.04,
+        "pursuitB": 0.06,
+        "avoidanceA": 0.76,
+        "avoidanceB": 0.54,
+        "activation": 0.36,
+        "asymmetry": 0.28,
+        "sexualCharge": 0,
+        "sexualChargeA": 0,
+        "sexualChargeB": 0,
+        "drunkA": 0.85,
+        "drunkB": 0.08
+      }</pre>
+    </section>
+
+    <!-- CANVAS -->
+    <h2 class="section-header">we are the blobs in motion</h2>
+
+    <div id="canvas-container"></div>
+
+  </div>
+
   <script src="lava-lamps.js"></script>
 </body>
 </html>
